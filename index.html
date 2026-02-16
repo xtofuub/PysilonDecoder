@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Token Decoder</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg"></div>
+    <main class="page">
+      <header class="hero">
+        <div class="hero-badge">PyInstaller Token Decoder</div>
+        <h1>Decode tokens from protected payloads.</h1>
+        <p>
+          Upload a zip that contains a single PyInstaller exe. We will extract it
+          and show the decoded token.
+        </p>
+      </header>
+
+      <section class="card" aria-live="polite">
+        <form id="upload-form" class="form">
+          <label class="file-drop" for="zip-file">
+            <input
+              id="zip-file"
+              name="file"
+              type="file"
+              accept=".zip"
+              required
+            />
+            <div class="file-copy">
+              <span class="file-title">Drop your zip here</span>
+              <span class="file-sub">or click to browse</span>
+            </div>
+            <div class="file-meta" id="file-meta">No file selected</div>
+          </label>
+
+          <button class="btn" type="submit" id="submit-btn">
+            Decode token
+          </button>
+        </form>
+
+        <div class="status" id="status">
+          Ready to decode.
+        </div>
+
+        <div class="result" id="result" hidden>
+          <div class="result-label">Decoded token</div>
+          <pre class="result-token" id="result-token"></pre>
+        </div>
+      </section>
+
+      <section class="tips">
+        <div class="tip">
+          <h3>Single exe only</h3>
+          <p>The zip should contain one exe built with PyInstaller.</p>
+        </div>
+        <div class="tip">
+          <h3>Fast processing</h3>
+          <p>The file is processed in memory and discarded after decoding.</p>
+        </div>
+        <div class="tip">
+          <h3>Clean output</h3>
+          <p>Only the first decoded token is returned.</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
