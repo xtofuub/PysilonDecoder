@@ -3,10 +3,7 @@ import io
 import json
 import os
 import re
-import stat
-import subprocess
 import tempfile
-import urllib.request
 import zipfile
 from email.parser import BytesParser
 from email.policy import default
@@ -28,10 +25,6 @@ except Exception:
     pyzipper = None
 
 BASE64_RE = re.compile(rb"[A-Za-z0-9+/=]{20,}")
-BASE64_TEXT_RE = re.compile(r"[A-Za-z0-9+/=]{20,}")
-PYCDAS_PATH = ROOT_DIR / "pycdas.x86_64"
-PYCDAS_TIMEOUT = 30
-MAX_ZIP_BYTES = 150 * 1024 * 1024
 
 
 def _safe_extract(zip_file, dest_dir: Path, password: Optional[str] = None) -> None:
@@ -86,17 +79,10 @@ def _find_source_prepared(extracted_dir: Path) -> Optional[Path]:
     return None
 
 
-def _ensure_executable(path: Path) -> None:
-    try:
-        mode = path.stat().st_mode
-        path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    except Exception:
-        pass
-
-
-def _decode_token_candidates(candidates) -> Optional[str]:
-    for token in candidates:
-        token = token.strip()
+def _decode_first_token(pyc_path: Path) -> Optional[str]:
+    data = pyc_path.read_bytes()
+    for match in BASE64_RE.finditer(data):
+        token = match.group().decode("ascii", errors="ignore")
         if not token:
             continue
         try:
@@ -105,40 +91,6 @@ def _decode_token_candidates(candidates) -> Optional[str]:
         except Exception:
             continue
     return None
-
-
-def _decode_from_pyc_bytes(pyc_path: Path) -> Optional[str]:
-    data = pyc_path.read_bytes()
-    tokens = (match.group().decode("ascii", errors="ignore") for match in BASE64_RE.finditer(data))
-    return _decode_token_candidates(tokens)
-
-
-def _decode_from_pycdas(pyc_path: Path) -> Optional[str]:
-    if not PYCDAS_PATH.exists():
-        return None
-    _ensure_executable(PYCDAS_PATH)
-    try:
-        result = subprocess.run(
-            [str(PYCDAS_PATH), str(pyc_path)],
-            capture_output=True,
-            text=True,
-            timeout=PYCDAS_TIMEOUT,
-        )
-    except Exception:
-        return None
-
-    output = "\n".join(filter(None, [result.stdout, result.stderr]))
-    if not output:
-        return None
-    tokens = BASE64_TEXT_RE.findall(output)
-    return _decode_token_candidates(tokens)
-
-
-def _decode_first_token(pyc_path: Path) -> Optional[str]:
-    decoded = _decode_from_pycdas(pyc_path)
-    if decoded:
-        return decoded
-    return _decode_from_pyc_bytes(pyc_path)
 
 
 def _parse_multipart_upload(content_type: str, body: bytes) -> Optional[tuple[str, bytes]]:
@@ -164,35 +116,6 @@ def _parse_multipart_upload(content_type: str, body: bytes) -> Optional[tuple[st
         payload = part.get_payload(decode=True) or b""
         return filename, payload
     return None
-
-
-def _parse_json_upload(content_type: str, body: bytes) -> Optional[str]:
-    if not content_type.lower().startswith("application/json"):
-        return None
-    try:
-        payload = json.loads(body.decode("utf-8"))
-    except Exception:
-        return None
-    file_url = payload.get("file_url") if isinstance(payload, dict) else None
-    if not file_url:
-        return None
-    return str(file_url)
-
-
-def _download_to_path(file_url: str, target_path: Path) -> None:
-    with urllib.request.urlopen(file_url) as response:
-        if getattr(response, "status", 200) >= 400:
-            raise RuntimeError("Failed to download file.")
-        total = 0
-        with open(target_path, "wb") as handle:
-            while True:
-                chunk = response.read(1024 * 1024)
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > MAX_ZIP_BYTES:
-                    raise RuntimeError("Zip exceeds maximum allowed size.")
-                handle.write(chunk)
 
 
 def _json_response(handler, status: int, payload: dict) -> None:
@@ -260,43 +183,31 @@ class handler(BaseHTTPRequestHandler):  # Vercel Python entrypoint
         except ValueError:
             length = 0
         body = self.rfile.read(length) if length > 0 else b""
-        file_url = _parse_json_upload(content_type, body)
-        parsed = None
-        if not file_url:
-            parsed = _parse_multipart_upload(content_type, body)
-            if not parsed:
-                _json_response(self, 400, {"error": "Missing file field."})
-                return
+        parsed = _parse_multipart_upload(content_type, body)
+        if not parsed:
+            _json_response(self, 400, {"error": "Missing file field."})
+            return
+        filename, raw = parsed
+        if not filename.lower().endswith(".zip"):
+            _json_response(self, 400, {"error": "Upload must be a .zip file."})
+            return
+        if not raw:
+            _json_response(self, 400, {"error": "Empty upload."})
+            return
 
         try:
             with tempfile.TemporaryDirectory() as tmp:
                 tmp_dir = Path(tmp)
-                zip_path = tmp_dir / "upload.zip"
-                if file_url:
-                    _download_to_path(file_url, zip_path)
-                else:
-                    filename, raw = parsed
-                    if not filename.lower().endswith(".zip"):
-                        _json_response(self, 400, {"error": "Upload must be a .zip file."})
-                        return
-                    if not raw:
-                        _json_response(self, 400, {"error": "Empty upload."})
-                        return
-                    if len(raw) > MAX_ZIP_BYTES:
-                        _json_response(self, 400, {"error": "Zip exceeds maximum allowed size."})
-                        return
-                    zip_path.write_bytes(raw)
-
-                with zipfile.ZipFile(zip_path) as probe:
+                with zipfile.ZipFile(io.BytesIO(raw)) as probe:
                     aes_zip = _is_aes_zip(probe)
 
                 if aes_zip:
                     if not pyzipper:
                         raise RuntimeError("AES zip detected. Install pyzipper to extract it.")
-                    with pyzipper.AESZipFile(zip_path) as zip_file:
+                    with pyzipper.AESZipFile(io.BytesIO(raw)) as zip_file:
                         _safe_extract(zip_file, tmp_dir, password="infected")
                 else:
-                    with zipfile.ZipFile(zip_path) as zip_file:
+                    with zipfile.ZipFile(io.BytesIO(raw)) as zip_file:
                         _safe_extract(zip_file, tmp_dir, password="infected")
 
                 exe_path = _find_exe(tmp_dir)
