@@ -1,4 +1,4 @@
-import { handleUpload } from "@vercel/blob";
+import { handleUpload } from "@vercel/blob/client";
 
 const readJsonBody = (request) =>
   new Promise((resolve, reject) => {
@@ -21,6 +21,10 @@ const readJsonBody = (request) =>
   });
 
 export default async function handler(request, response) {
+  if (request.method !== "POST") {
+    response.status(405).json({ error: "Method not allowed." });
+    return;
+  }
   try {
     const body = await readJsonBody(request);
     const jsonResponse = await handleUpload({
