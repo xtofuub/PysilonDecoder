@@ -5,6 +5,10 @@ const statusEl = document.getElementById("status");
 const resultBox = document.getElementById("result");
 const resultToken = document.getElementById("result-token");
 const submitBtn = document.getElementById("submit-btn");
+const apiUrl =
+  window.location.protocol === "file:"
+    ? "http://localhost:8000/api/decode"
+    : "/api/decode";
 
 const setStatus = (message, tone = "muted") => {
   statusEl.textContent = message;
@@ -15,6 +19,10 @@ const resetResult = () => {
   resultBox.hidden = true;
   resultToken.textContent = "";
 };
+
+if (window.location.protocol === "file:") {
+  setStatus("Local mode: start the server with python local_server.py");
+}
 
 fileInput.addEventListener("change", () => {
   const file = fileInput.files[0];
@@ -43,7 +51,7 @@ form.addEventListener("submit", async (event) => {
   formData.append("file", file);
 
   try {
-    const response = await fetch("/api/decode", {
+    const response = await fetch(apiUrl, {
       method: "POST",
       body: formData,
     });
