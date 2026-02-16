@@ -48,13 +48,22 @@ form.addEventListener("submit", async (event) => {
       body: formData,
     });
 
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.error || "Decode failed.");
+    const rawText = await response.text();
+    let payload = null;
+    try {
+      payload = rawText ? JSON.parse(rawText) : null;
+    } catch (parseError) {
+      if (!response.ok) {
+        throw new Error(rawText || "Decode failed.");
+      }
+      throw new Error("Unexpected response from server.");
     }
 
-    resultToken.textContent = payload.decoded_token || "";
+    if (!response.ok) {
+      throw new Error((payload && payload.error) || "Decode failed.");
+    }
+
+    resultToken.textContent = (payload && payload.decoded_token) || "";
     resultBox.hidden = false;
     setStatus("Decoded successfully.");
   } catch (error) {
