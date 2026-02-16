@@ -1,4 +1,5 @@
 # Token Decoder (Vercel)
+<img width="1094" height="836" alt="{BA5666EB-CFE5-4AB9-BBEA-D4FAB54ACD86}" src="https://github.com/user-attachments/assets/0f09556e-cdf0-4394-bd3a-d5e6e5e7d2b0" />
 
 Upload a zip that contains a single PyInstaller `.exe`. The server extracts it, finds `source_prepared.pyc`, and returns the first decoded token it can recover.
 
@@ -33,3 +34,4 @@ This enables direct uploads to Vercel Blob and cleanup after decoding.
 - Max zip size is 150 MB.
 - The backend runs on Linux; `pycdas.x86_64` is required.
 - Blob files are deleted only after a successful decode.
+
