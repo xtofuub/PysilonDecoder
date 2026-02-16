@@ -1,50 +1,35 @@
-# Token Decoder (Vercel + Local)
+# Token Decoder (Vercel)
 
-This project extracts a PyInstaller exe inside a zip, finds `source_prepared.pyc`, and decodes the first reversed base64 token.
+Upload a zip that contains a single PyInstaller `.exe`. The server extracts it, finds `source_prepared.pyc`, and returns the first decoded token it can recover.
 
-## Run locally
+## How it works
 
-1. Make sure you have Python 3.9+ installed.
-2. Install dependencies:
+1. The browser uploads the zip to Vercel Blob.
+2. The app calls `/api/decode` with the blob URL.
+3. The server downloads the zip, extracts it, and scans for the token.
+4. The blob is deleted after a successful decode.
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Deploy to Vercel
 
-3. Start the local server:
-
-   ```bash
-   python local_server.py
-   ```
-
-4. Open `index.html` in your browser and upload the zip.
-
-The UI will send the zip to `http://localhost:8000/api/decode`.
-
-## Deploy to Vercel (zip upload)
-
-1. Zip the project root (make sure `pycdas.x86_64` is included).
+1. Zip the project root (include `pycdas.x86_64`).
 2. Go to https://vercel.com/new
 3. Choose **Import Project** and upload the zip.
-4. Deploy. Vercel will expose:
-   - UI at `/`
-   - API at `/api/decode`
+4. Deploy.
 
-After deploy, open the Vercel URL and upload your zip there.
+Vercel will expose:
+- UI at `/`
+- API at `/api/decode`
 
-## Large uploads (fix for FUNCTION_PAYLOAD_TOO_LARGE)
+## Environment variables
 
-This project uses direct-to-blob uploads in hosted mode to avoid Vercel payload limits.
+Add this in your Vercel project settings (Storage tab):
 
-1. In Vercel, add the Environment Variable:
+- `BLOB_READ_WRITE_TOKEN`
 
-   - `BLOB_READ_WRITE_TOKEN` (from Vercel Blob settings)
+This enables direct uploads to Vercel Blob and cleanup after decoding.
 
-2. Deploy again.
+## Limits and notes
 
-The UI will upload the zip to Vercel Blob, then call `/api/decode` with the blob URL.
-
-## Notes
-
-- `pycdas.x86_64` runs only on Linux, so the backend must run on Vercel (not Pages Functions).
-- If your zip uploads exceed Vercel size limits, ask for a direct-to-blob upload flow.
+- Max zip size is 150 MB.
+- The backend runs on Linux; `pycdas.x86_64` is required.
+- Blob files are deleted only after a successful decode.
