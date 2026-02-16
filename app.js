@@ -9,6 +9,10 @@ const resultToken = document.getElementById("result-token");
 const submitBtn = document.getElementById("submit-btn");
 const isLocalFile = window.location.protocol === "file:";
 const apiUrl = isLocalFile ? "http://localhost:8000/api/decode" : "/api/decode";
+const MAX_UPLOAD_BYTES = 150 * 1024 * 1024;
+const ZIP_NAME_REGEX = /\.zip$/i;
+
+const isZipFile = (file) => ZIP_NAME_REGEX.test(file.name || "");
 
 const setStatus = (message, tone = "muted") => {
   statusEl.textContent = message;
@@ -30,6 +34,18 @@ fileInput.addEventListener("change", () => {
     fileMeta.textContent = "No file selected";
     return;
   }
+  if (!isZipFile(file)) {
+    fileMeta.textContent = `${file.name} (unsupported)`;
+    resetResult();
+    setStatus("Please select a .zip file.");
+    return;
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    fileMeta.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+    resetResult();
+    setStatus("File is too large. Max 150 MB.");
+    return;
+  }
   fileMeta.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
   resetResult();
   setStatus("Ready to decode.");
@@ -39,7 +55,7 @@ const uploadViaBlob = async (file) => {
   const blob = await upload(file.name, file, {
     access: "public",
     handleUploadUrl: "/api/upload",
-    contentType: "application/zip",
+    contentType: file.type || "application/zip",
   });
   return blob.url;
 };
@@ -60,6 +76,14 @@ form.addEventListener("submit", async (event) => {
   const file = fileInput.files[0];
   if (!file) {
     setStatus("Please select a zip file first.");
+    return;
+  }
+  if (!isZipFile(file)) {
+    setStatus("Please select a .zip file.");
+    return;
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    setStatus("File is too large. Max 150 MB.");
     return;
   }
 

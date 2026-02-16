@@ -32,11 +32,14 @@ export default async function handler(request, response) {
       request,
       onBeforeGenerateToken: async () => {
         return {
-          allowedContentTypes: ["application/zip"],
+          allowedContentTypes: ["application/zip", "application/x-zip-compressed"],
           maximumSizeInBytes: 150 * 1024 * 1024,
+          addRandomSuffix: true,
         };
       },
-      onUploadCompleted: async () => {},
+      onUploadCompleted: async ({ blob }) => {
+        console.log("blob upload completed", blob.url);
+      },
     });
 
     response.status(200).json(jsonResponse);
