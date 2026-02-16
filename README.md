@@ -32,6 +32,18 @@ The UI will send the zip to `http://localhost:8000/api/decode`.
 
 After deploy, open the Vercel URL and upload your zip there.
 
+## Large uploads (fix for FUNCTION_PAYLOAD_TOO_LARGE)
+
+This project uses direct-to-blob uploads in hosted mode to avoid Vercel payload limits.
+
+1. In Vercel, add the Environment Variable:
+
+   - `BLOB_READ_WRITE_TOKEN` (from Vercel Blob settings)
+
+2. Deploy again.
+
+The UI will upload the zip to Vercel Blob, then call `/api/decode` with the blob URL.
+
 ## Notes
 
 - `pycdas.x86_64` runs only on Linux, so the backend must run on Vercel (not Pages Functions).

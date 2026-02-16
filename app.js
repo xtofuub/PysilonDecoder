@@ -1,3 +1,5 @@
+import { upload } from "https://esm.sh/@vercel/blob/client";
+
 const form = document.getElementById("upload-form");
 const fileInput = document.getElementById("zip-file");
 const fileMeta = document.getElementById("file-meta");
@@ -5,10 +7,8 @@ const statusEl = document.getElementById("status");
 const resultBox = document.getElementById("result");
 const resultToken = document.getElementById("result-token");
 const submitBtn = document.getElementById("submit-btn");
-const apiUrl =
-  window.location.protocol === "file:"
-    ? "http://localhost:8000/api/decode"
-    : "/api/decode";
+const isLocalFile = window.location.protocol === "file:";
+const apiUrl = isLocalFile ? "http://localhost:8000/api/decode" : "/api/decode";
 
 const setStatus = (message, tone = "muted") => {
   statusEl.textContent = message;
@@ -20,7 +20,7 @@ const resetResult = () => {
   resultToken.textContent = "";
 };
 
-if (window.location.protocol === "file:") {
+if (isLocalFile) {
   setStatus("Local mode: start the server with python local_server.py");
 }
 
@@ -34,6 +34,26 @@ fileInput.addEventListener("change", () => {
   resetResult();
   setStatus("Ready to decode.");
 });
+
+const uploadViaBlob = async (file) => {
+  const blob = await upload(file.name, file, {
+    access: "public",
+    handleUploadUrl: "/api/upload",
+    contentType: "application/zip",
+  });
+  return blob.url;
+};
+
+const decodeWithUrl = async (fileUrl) => {
+  const response = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ file_url: fileUrl }),
+  });
+  return response;
+};
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -51,10 +71,16 @@ form.addEventListener("submit", async (event) => {
   formData.append("file", file);
 
   try {
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      body: formData,
-    });
+    let response = null;
+    if (isLocalFile) {
+      response = await fetch(apiUrl, {
+        method: "POST",
+        body: formData,
+      });
+    } else {
+      const blobUrl = await uploadViaBlob(file);
+      response = await decodeWithUrl(blobUrl);
+    }
 
     const rawText = await response.text();
     let payload = null;

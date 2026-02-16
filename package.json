@@ -1,0 +1,8 @@
+{
+  "name": "token-decoder",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@vercel/blob": "^0.22.0"
+  }
+}
